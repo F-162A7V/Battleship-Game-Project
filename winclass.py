@@ -1,3 +1,7 @@
+__author__ = "F-162A7V"
+
+
+
 import sys
 import tkinter as tk
 from tkinter import ttk
@@ -37,8 +41,18 @@ class customButton():
         self.b1.pack(padx=offset[0],pady=offset[1])
 
 
+class customRadio():
+    def __init__(self,parentwin,w,name,optlist,tgt,offset=0):
+        if type(offset) != tuple:
+            offset = (0, 0)
+        self.w = w
+        self.parentwin = parentwin
+        #self.label = ttk.Label(self.parentwin.root, text=name)
+        #self.label.pack(padx=offset[0], pady=(offset[1] - 10))
+        self.offset = offset
+        self.optlist = optlist
+        self.mvar = tk.StringVar()
+        self.mvar.set(optlist[0])
+        for x in optlist:
+            tk.Radiobutton(self.parentwin.root, text=x, variable=self.mvar, value=x, command=tgt).grid()
 
-#win = Window("Client","200x300")
-#namefield = customEntry(win,25,25,lbl="Enter Name:")
-#passfield = customEntry(win,25,25,(0,25),"*",lbl="Enter Password:")
-#win.root.mainloop()
