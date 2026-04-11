@@ -9,10 +9,9 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
-from tests import aesgcm
 
 pause = False
-
+aesobj = ""
 
 #region Send/recieve
 def makeSendableMsg(msg):
@@ -22,7 +21,8 @@ def makeSendableMsg(msg):
         pass
     return struct.pack("I",len(msg)) + msg
 
-def makeSendableMENC(aesobj,msg):
+def makeSendableMENC(msg):
+    global aesobj
     try:
         msg = msg.encode()
     except:
@@ -206,6 +206,7 @@ def RSAdec(encrypted_message,private_key):
         return b'RSAdecFAIL'
 
 def encrypt(sock):
+    global aesobj
     private_key,public_key = load_keys()
     pem_public = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
@@ -218,7 +219,7 @@ def encrypt(sock):
     if fields[0] == b'AESK':
         AEkey = fields[1]
         aesobj = AESGCM(AEkey)
-        mainpass(sock,aesobj)
+        Pick(sock)
 #endregion
 
 def mainpass(sock,aesobj):
