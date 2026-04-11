@@ -9,17 +9,27 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
-
+from tests import aesgcm
 
 pause = False
 
 
-
+#region Send/recieve
 def makeSendableMsg(msg):
     try:
         msg = msg.encode()
     except:
         pass
+    return struct.pack("I",len(msg)) + msg
+
+def makeSendableMENC(aesobj,msg):
+    try:
+        msg = msg.encode()
+    except:
+        pass
+    nonce = os.urandom(12)
+    msg = aesobj.encrypt(nonce,msg,b"")
+    msg = nonce + msg
     return struct.pack("I",len(msg)) + msg
 
 def recieveData(sock):
@@ -28,12 +38,13 @@ def recieveData(sock):
     response = sock.recv(L)
     return response, response.split(b"--||||--")
 
-def recieveENC(sock):
+def recieveENC(sock,aesobj):
     L = sock.recv(4)
     L = struct.unpack("I",L)[0]
     response = sock.recv(L)
-    return response
-
+    nonce = response[:12]
+    return aesobj.decrypt(nonce, response[12:])
+#endregion
 
 #region Graphics - Entry
 def Pick(sock):
@@ -158,13 +169,12 @@ def GenRSAkeys():
     with open('private_key.pem', 'wb') as f:
         f.write(pem_private)
     public_key = private_key.public_key()
-    pem_private = private_key.private_bytes(
+    pem_public = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.BestAvailableEncryption(b'mypassword')
+        format=serialization.PublicFormat.PKCS1,
     )
-    with open('private_key.pem', 'wb') as f:
-        f.write(pem_private)
+    with open('public_key.pem', 'wb') as f:
+        f.write(pem_public)
 
 def load_keys():
     with open("private_key.pem", "rb") as key_file:
@@ -193,23 +203,40 @@ def RSAdec(encrypted_message,private_key):
         )
         return message
     except ValueError:
-        return "Decryption failed: Key incorrect"
+        return b'RSAdecFAIL'
 
 def encrypt(sock):
     private_key,public_key = load_keys()
-    msg = b'HELO--||||--' + pickle.dumps(public_key)
+    pem_public = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.PKCS1,)
+    msg = b'HELO--||||--' + pem_public
     sock.send(makeSendableMsg(msg))
-    resp = recieveENC(sock)
+    resp = recieveData(sock)[0]
     decresp = RSAdec(resp,private_key)
     fields = decresp.split(b'--||||--')
     if fields[0] == b'AESK':
-        AESobject = pickle.loads(fields[1])
-        
-
-
-
+        AEkey = fields[1]
+        aesobj = AESGCM(AEkey)
+        mainpass(sock,aesobj)
 #endregion
 
+def mainpass(sock,aesobj):
+    pass
+
 def main():
-    if not os.path.isfile("/private_key.pem"):
+    if not os.path.isfile("/private_key.pem") or not os.path.isfile("/public_key.pem"):
         GenRSAkeys()
+    sock = socket.socket()
+    while True:
+        try:
+            sock.connect(("127.0.0.1",11111))
+            break
+        except:
+            print("Error connecting: server unavailable")
+    encrypt(sock)
+
+
+if __name__ == '__main__':
+    main()
+
