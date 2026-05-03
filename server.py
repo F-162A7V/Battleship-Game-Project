@@ -2,7 +2,7 @@ __author__ = "F-162A7V"
 
 
 
-import socket, pickle, threading, struct,pygame,os, senderobject, random, smtplib,ssl,time
+import socket, pickle, threading, struct,pygame,os, senderobject, random, smtplib,ssl,time,traceback
 from email_validator import validate_email
 from email.message import EmailMessage
 from cryptography.hazmat.primitives import serialization,hashes
@@ -94,12 +94,12 @@ def passchangesequence(sock,tgtemail,aesobj):
             tn.start()
             threads.append(tn)
             users[tgt_user][3] = True
-            data, fields = recieveData(sock)
+            data, fields = recieveENC(sock,aesobj)
             if fields[0] == b'FPCD':
                 if fields[1].decode == code:
                     msg = makeSendableMENC(aesobj,'FPCR')
                     sock.send(msg)
-                    data, fields2 = recieveData(sock)
+                    data, fields2 = recieveENC(sock)
                     if fields2[0] == 'NEWP':
                         new_pass = fields2[1]
                         salt = users[tgt_user][2]
@@ -121,11 +121,14 @@ def passchangesequence(sock,tgtemail,aesobj):
 #endregion
 
 
-def parse_msg(fields,sock):
+def parse_msg(data,sock,aesobj):
     global diction
     global pepper
+    fields = data.split(b'--||||--')
+    cli_logging_in = 0
     try:
         code = fields[0]
+        print(fields)
         msg = ''
         if code == 'SIGN':
             email = fields[1]
@@ -139,9 +142,10 @@ def parse_msg(fields,sock):
                 diction.socksender[username] = []
                 with open("users.pkl", "wb") as fil:
                     pickle.dump(users, fil)
-                msg = 'SIGR|``|T'
+                msg = 'SIGR'
+                cli_logging_in = 1
             else:
-                msg = 'EROR|``|004'
+                msg = 'EROR--||||--004'
 
         if code == "LOGN":
             username = fields[1]
@@ -150,36 +154,36 @@ def parse_msg(fields,sock):
                 password = noenc_password + users[username][2] + pepper
                 enc = sha256(password.encode()).hexdigest()
                 if users[username][0] == enc:
-                        msg = "LOGR"
+                    msg = "LOGR"
+                    cli_logging_in = 1
                 else:
-                    msg = "EROR|``|002"
+                    msg = "EROR--||||--002"
             else:
-                msg = "EROR|``|002"
+                msg = "EROR--||||--002"
 
         if code == "FGTP":
-            passchangesequence(sock,fields[1])
+            passchangesequence(sock,fields[1],aesobj)
         if code == "MESG":
             keys = diction.socksender.keys()
             if fields[2] in keys:
-                msg = f'MESS|``|{fields[1]}|``|{fields[3]}'
+                msg = f'MESS--||||--{fields[1]}--||||--{fields[3]}'
             else:
-                msg = "EROR|``|003"
-    except IndexError:
-        msg = "EROR|``|005"
-    length = struct.pack("I",len(msg))
-    msg = length + msg.encode()
-    if msg[:4] == "MESS":
-        print(msg)
-        diction.AddMsg(fields[2],msg)
-        with open("messages.pkl", "wb") as fil:
-            pickle.dump(diction.socksender, fil)
-    else:
-        try:
-            print(msg)
-            sock.send(msg)
-        except:
-            pass
-
+                msg = "EROR--||||--003"
+            msg = "EROR--||||--005"
+        if msg[:4] == "MESS":
+            diction.AddMsg(fields[2], msg)
+            with open("messages.pkl", "wb") as fil:
+                pickle.dump(diction.socksender, fil)
+        else:
+            try:
+                msg = makeSendableMENC(sock, aesobj)
+                sock.send(msg)
+                if cli_logging_in:
+                    logged_in(sock, aesobj)
+            except:
+                pass
+    except Exception as e:
+        traceback.print_exc()
 
 #region Encryption
 def RSAenc(data,public_key):
@@ -204,16 +208,19 @@ def encryptexchange(sock):
         sock.send(makeSendableMsg(enc_msg))
         clipassenc(sock,aesobj)
     else:
-        sock.send(makeSendableMsg("EROR--||||--001"))
+        sock.send(makeSendableMsg("EROR--||||--005"))
 #endregion
 
 
 def handle_client(sock,notuple):
     encryptexchange(sock)
 
-
 def clipassenc(sock,aesobj):
-    pass
+    data = recieveENC(sock,aesobj)
+    parse_msg(data,sock,aesobj)
+
+def logged_in(sock,aesobj):
+    print("Logged in!")
 
 def mainLoop(ip="127.0.0.1",port=11111):
     global stop

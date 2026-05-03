@@ -51,8 +51,8 @@ def Pick(sock):
     global current_window
     win = winclass.Window("LOGIN", "200x400")
     current_window = win
-    sign = winclass.customButton(win, 25, "LOGIN", command=lambda: signWin(sock, win), offset=(0, 20))
-    log = winclass.customButton(win, 25, "SIGNUP", command=lambda: logWin(sock, win), offset=(0, 30))
+    sign = winclass.customButton(win, 25, "SIGNUP", command=lambda: signWin(sock, win), offset=(0, 20))
+    log = winclass.customButton(win, 25, "LOGIN", command=lambda: logWin(sock, win), offset=(0, 30))
     forgt = winclass.customButton(win, 25, "FORGOT PASS", command=lambda: forgotWin(sock,0, win), offset=(0, 40))
     win.root.mainloop()
 
@@ -77,15 +77,16 @@ def signWin(sock, parent=0):
     namefield = winclass.customEntry(win, 25, 25, lbl="Enter Email:")
     emfield = winclass.customEntry(win, 25, 25, lbl="Enter Username:")
     passfield = winclass.customEntry(win, 25, 25, (0, 25), "*", lbl="Enter Password:")
-    send = winclass.customButton(win, 25, "Submit", command=lambda: signFunc(sock, namefield, passfield,emfield, win),offset=(0, 40))
+    send = winclass.customButton(win, 25, "Submit", command=lambda: signFunc(sock, namefield, passfield,emfield, win))
     win.root.mainloop()
 
 
 def loginFunc(sock, namefield, passfield, parent=0):
-    data = f"LOGN|``|{namefield.text_var.get()}|``|{passfield.text_var.get()}"
-    sock.send(makeSendableMsg(data))
-    resp = recieveData(sock)
-    fields = resp.split(b'|``|')
+    global aesobj
+    data = f"LOGN--||||--{namefield.text_var.get()}--||||--{passfield.text_var.get()}"
+    sock.send(makeSendableMENC(data))
+    resp = recieveENC(sock,aesobj)
+    fields = resp.split(b'--||||--')
     if fields[0] == b"LOGR":
         mainGameWin(sock)
     elif fields[0] == b'EROR':
@@ -94,10 +95,11 @@ def loginFunc(sock, namefield, passfield, parent=0):
         parent.root.destroy()
 
 def signFunc(sock, namefield, passfield, email, parent=0):
-    data = f"LOGN|``|{email}|``|{namefield.text_var.get()}|``|{passfield.text_var.get()}"
-    sock.send(makeSendableMsg(data))
-    resp = recieveData(sock)
-    fields = resp.split(b'|``|')
+    global aesobj
+    data = f"SIGN--||||--{email.text_var.get()}--||||--{namefield.text_var.get()}--||||--{passfield.text_var.get()}"
+    sock.send(makeSendableMENC(data))
+    resp = recieveENC(sock,aesobj)
+    fields = resp.split(b'--||||--')
     if fields[0] == b"SIGR":
         mainGameWin(sock)
     elif fields[0] == b'EROR':
@@ -127,25 +129,26 @@ def forgotWin(sock, stage,parent=0):
 
 
 def forgotFunc(sock, textvar, stage, parent=0):
+    global aesobj
     if stage == 0:
-        data = f"FGTP|``|{textvar.text_var.get()}"
-        sock.send(makeSendableMsg(data))
-        resp = recieveData(sock)
-        fields = resp.split(b'|``|')
+        data = f"FGTP--||||--{textvar.text_var.get()}"
+        sock.send(makeSendableMENC(data))
+        resp = recieveENC(sock,aesobj)
+        fields = resp.split(b'--||||--')
         if fields[0] == b"FGPR":
             forgotWin(sock,1,parent)
     elif stage == 1:
-        data = f'FPCD|``|{textvar.text_var.get()}'
-        sock.send(makeSendableMsg(data))
-        resp = recieveData(sock)
-        fields = resp.split(b'|``|')
+        data = f'FPCD--||||--{textvar.text_var.get()}'
+        sock.send(makeSendableMENC(data))
+        resp = recieveENC(sock,aesobj)
+        fields = resp.split(b'--||||--')
         if fields[0] == b"FPCR":
             forgotWin(sock,2,parent)
     elif stage == 2:
-        data = f'NEWP|``|{textvar.text_var.get()}'
-        sock.send(makeSendableMsg(data))
-        resp = recieveData(sock)
-        fields = resp.split(b'|``|')
+        data = f'NEWP--||||--{textvar.text_var.get()}'
+        sock.send(makeSendableMENC(data))
+        resp = recieveENC(sock,aesobj)
+        fields = resp.split(b'--||||--')
         if fields[0] == b"NEWR":
             print("Password changed successfully")
     return
@@ -223,7 +226,7 @@ def encrypt(sock):
 #endregion
 
 def mainpass(sock,aesobj):
-    pass
+    Pick(sock)
 
 def main():
     if not os.path.isfile("/private_key.pem") or not os.path.isfile("/public_key.pem"):
