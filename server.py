@@ -122,9 +122,9 @@ def passchangesequence(sock,tgtemail,aesobj):
 #endregion
 
 def parse_msg(data,sock,aesobj):
-    global diction
-    global pepper
-    fields = data.split(b'--||||--')
+    global diction,pepper,users
+    data = data.decode()
+    fields = data.split('--||||--')
     cli_logging_in = 0
     try:
         code = fields[0]
@@ -160,6 +160,7 @@ def parse_msg(data,sock,aesobj):
                     msg = "EROR--||||--002"
             else:
                 msg = "EROR--||||--002"
+        print(msg)
 
         if code == "FGTP":
             passchangesequence(sock,fields[1],aesobj)
@@ -197,7 +198,7 @@ def RSAenc(data,public_key):
     )
     return encrypted_message
 
-def encryptexchange(sock):
+def encryptexchange(sock,notuple=0):
     resp,fields = recieveData(sock)
     AEKey = AESGCM.generate_key(bit_length=256)
     aesobj = AESGCM(AEKey)
@@ -212,9 +213,6 @@ def encryptexchange(sock):
 #endregion
 
 
-def handle_client(sock,notuple):
-    encryptexchange(sock)
-
 def clipassenc(sock,aesobj):
     data = recieveENC(sock,aesobj)
     parse_msg(data,sock,aesobj)
@@ -223,9 +221,10 @@ def logged_in(sock,aesobj):
     print("Logged in!")
 
 def mainLoop(ip="127.0.0.1",port=11111):
-    global stop
+    global stop, users
     with open('users.pkl', 'rb') as file:
         users = pickle.load(file)
+        print(users)
     with open('messages.pkl','rb') as file:
         diction.socksender = pickle.load(file)
     sock = socket.socket()
@@ -234,7 +233,7 @@ def mainLoop(ip="127.0.0.1",port=11111):
     threads = []
     while not stop:
         c,a = sock.accept()
-        t = threading.Thread(target=handle_client,args=(c,""))
+        t = threading.Thread(target=encryptexchange,args=(c,""))
         t.start()
         threads.append(t)
     for t in threads:

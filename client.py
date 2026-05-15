@@ -83,6 +83,8 @@ def signWin(sock, parent=0):
 
 def loginFunc(sock, namefield, passfield, parent=0):
     global aesobj
+    if parent:
+        parent.root.destroy()
     data = f"LOGN--||||--{namefield.text_var.get()}--||||--{passfield.text_var.get()}"
     sock.send(makeSendableMENC(data))
     resp = recieveENC(sock,aesobj)
@@ -91,11 +93,12 @@ def loginFunc(sock, namefield, passfield, parent=0):
         mainGameWin(sock)
     elif fields[0] == b'EROR':
         pass
-    if parent:
-        parent.root.destroy()
+
 
 def signFunc(sock, namefield, passfield, email, parent=0):
     global aesobj
+    if parent:
+        parent.root.destroy()
     data = f"SIGN--||||--{email.text_var.get()}--||||--{namefield.text_var.get()}--||||--{passfield.text_var.get()}"
     sock.send(makeSendableMENC(data))
     resp = recieveENC(sock,aesobj)
@@ -104,8 +107,6 @@ def signFunc(sock, namefield, passfield, email, parent=0):
         mainGameWin(sock)
     elif fields[0] == b'EROR':
         pass
-    if parent:
-        parent.root.destroy()
 
 
 def forgotWin(sock, stage,parent=0):
@@ -130,6 +131,8 @@ def forgotWin(sock, stage,parent=0):
 
 def forgotFunc(sock, textvar, stage, parent=0):
     global aesobj
+    if parent:
+        parent.root.destroy()
     if stage == 0:
         data = f"FGTP--||||--{textvar.text_var.get()}"
         sock.send(makeSendableMENC(data))
@@ -235,11 +238,13 @@ def encrypt(sock):
     if fields[0] == b'AESK':
         AEkey = fields[1]
         aesobj = AESGCM(AEkey)
-        Pick(sock)
+        mainpass(sock)
 #endregion
 
-def mainpass(sock,aesobj):
-    Pick(sock)
+def mainpass(sock):
+    #Pick(sock)
+    sock.send(makeSendableMENC("LOGR--||||--t1--||||--t1"))
+    sock.send(makeSendableMENC("JOIN"))
 
 def main():
     if not os.path.isfile("/private_key.pem") or not os.path.isfile("/public_key.pem"):
