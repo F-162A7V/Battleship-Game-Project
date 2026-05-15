@@ -3,6 +3,7 @@ import pygame, math
 
 class Player():
     def __init__(self,x,y,angle,velocity,ptype):
+        self.hp = 100
         self.x = x
         self.y = y
         self.angle = angle

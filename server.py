@@ -9,6 +9,7 @@ from cryptography.hazmat.primitives import serialization,hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.asymmetric import padding
 from hashlib import sha256
+from battleshiplayer import Player
 
 
 
@@ -119,7 +120,6 @@ def passchangesequence(sock,tgtemail,aesobj):
     except:
         pass
 #endregion
-
 
 def parse_msg(data,sock,aesobj):
     global diction

@@ -156,7 +156,20 @@ def forgotFunc(sock, textvar, stage, parent=0):
 #endregion
 
 def mainGameWin(sock):
-    return
+    pygame.init()
+    screen = pygame.display.set_mode((800, 600))
+    pygame.display.set_caption("DENMARK STRAIT")
+    bg_img = pygame.image.load("assets/water2.jpg").convert()
+    hood_img = pygame.image.load("assets/hoodplayer_2.png").convert_alpha()
+    bismarck_img = pygame.image.load("assets/bismarckplayer_2.png").convert_alpha()
+    while True:
+        handlegameupdates(sock)
+
+def handlegameupdates(sock,request=0):
+    if request:
+        msg = makeSendableMENC(request)
+        sock.send(msg)
+
 
 #region Encryption
 def GenRSAkeys():

@@ -7,7 +7,7 @@ from battleshiplayer import Player
 
 pygame.init()
 screen = pygame.display.set_mode((800, 600))
-pygame.display.set_caption("My Game Window")
+pygame.display.set_caption("DENMARK STRAIT")
 bg_img = pygame.image.load("assets/water2.jpg").convert()
 hood_img = pygame.image.load("assets/hoodplayer_2.png").convert_alpha()
 bismarck_img = pygame.image.load("assets/bismarckplayer_2.png").convert_alpha()
@@ -25,6 +25,8 @@ def check_inpts(pressed_keys,plr):
         plr.change_velocity(1, 0.05)
     if pressed_keys[pygame.K_DOWN] or pressed_keys[pygame.K_s]:
         plr.change_velocity(-1, 0.05)
+    if pressed_keys[pygame.MOUSEBUTTONUP]:
+        pass
 
 def upd_screen(screen,hood,bis):
     screen.blit(hood, player1_rect)
