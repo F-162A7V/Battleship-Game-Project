@@ -1,6 +1,6 @@
 __author__ = "F-162A7V"
 
-
+import random
 import socket, pickle, pygame,struct,threading,os,tkinter,winclass
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
@@ -8,6 +8,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
+from battleshiplayer import Player
 
 
 pause = False
@@ -28,7 +29,7 @@ def makeSendableMENC(msg):
     except:
         pass
     nonce = os.urandom(12)
-    msg = aesobj.encrypt(nonce,msg,b"")
+    msg = aesobj.encrypt(nonce,msg,b'')
     msg = nonce + msg
     return struct.pack("I",len(msg)) + msg
 
@@ -36,14 +37,15 @@ def recieveData(sock):
     L = sock.recv(4)
     L = struct.unpack("I",L)[0]
     response = sock.recv(L)
-    return response, response.split(b"--||||--")
+    return response
 
-def recieveENC(sock,aesobj):
+def recieveENC(sock):
+    global aesobj
     L = sock.recv(4)
     L = struct.unpack("I",L)[0]
     response = sock.recv(L)
     nonce = response[:12]
-    return aesobj.decrypt(nonce, response[12:])
+    return aesobj.decrypt(nonce, response[12:],b"")
 #endregion
 
 #region Graphics - Entry
@@ -158,15 +160,48 @@ def forgotFunc(sock, textvar, stage, parent=0):
 
 #endregion
 
-def mainGameWin(sock):
+def mainGameWin(sock,type):
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
     pygame.display.set_caption("DENMARK STRAIT")
     bg_img = pygame.image.load("assets/water2.jpg").convert()
     hood_img = pygame.image.load("assets/hoodplayer_2.png").convert_alpha()
     bismarck_img = pygame.image.load("assets/bismarckplayer_2.png").convert_alpha()
+    P1_obj = Player(400, 500, 0, 0, 0)
+    P2_obj = Player(600, 300, 0, 0, 1)
+    clock = pygame.time.Clock()
     while True:
-        handlegameupdates(sock)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                msg = "LEAV"
+                break
+        pressed = pygame.key.get_pressed()
+        msg = check_inpts(pressed)
+        screen.blit(bg_img, (0, 0))
+        new_hood = pygame.transform.rotate(hood_img, P1_obj.angle)
+        player1_rect = new_hood.get_rect(center=(P1_obj.x, P1_obj.y))
+        upd_msg = recieveENC(sock)
+        upd_screen(screen, new_hood, bismarck_img)
+        clock.tick(10)
+
+def check_inpts(pressed_keys):
+    msg = ""
+    if pressed_keys[pygame.K_LEFT] or pressed_keys[pygame.K_a]:
+        msg = "PORT"
+    if pressed_keys[pygame.K_RIGHT] or pressed_keys[pygame.K_d]:
+        msg = "STRB"
+    if pressed_keys[pygame.K_UP] or pressed_keys[pygame.K_w]:
+        msg = "INCS"
+    if pressed_keys[pygame.K_DOWN] or pressed_keys[pygame.K_s]:
+        msg = "DECS"
+    if pressed_keys[pygame.MOUSEBUTTONUP]:
+        pass
+    return msg
+
+def upd_screen(screen,hood,bis,p1r,p2r):
+    screen.blit(hood, p1r)
+    screen.blit(bis, p2r)
+    pygame.display.flip()
 
 def handlegameupdates(sock,request=0):
     if request:
@@ -232,7 +267,7 @@ def encrypt(sock):
         format=serialization.PublicFormat.PKCS1,)
     msg = b'HELO--||||--' + pem_public
     sock.send(makeSendableMsg(msg))
-    resp = recieveData(sock)[0]
+    resp = recieveData(sock)
     decresp = RSAdec(resp,private_key)
     fields = decresp.split(b'--||||--')
     if fields[0] == b'AESK':
@@ -243,8 +278,21 @@ def encrypt(sock):
 
 def mainpass(sock):
     #Pick(sock)
-    sock.send(makeSendableMENC("LOGR--||||--t1--||||--t1"))
+    sock.send(makeSendableMENC("LOGN--||||--t1--||||--t1"))
     sock.send(makeSendableMENC("JOIN"))
+    while True:
+        msg = recieveENC(sock)
+        parse_msg(msg,sock)
+
+
+def parse_msg(msg,sock):
+    msg = msg.decode()
+    fields = msg.split()
+    if fields[0] == "STRT":
+        type = 0
+        if fields[1] == "BISMARCK":
+            type = 1
+        mainGameWin(sock,type)
 
 def main():
     if not os.path.isfile("/private_key.pem") or not os.path.isfile("/public_key.pem"):

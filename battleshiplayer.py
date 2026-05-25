@@ -26,6 +26,13 @@ class Player():
             if self.velocity - 0.05 >= self.max_speed*dir:
                 self.velocity += dir*mag
 
+    def set_velocity(self,num):
+        self.velocity = num
+
+    def set_coords(self,x,y):
+        self.x = x
+        self.y = y
+
     def change_coords(self):
         self.x += self.velocity * math.cos(math.radians(self.angle))
         self.y -= self.velocity * math.sin(math.radians(self.angle))

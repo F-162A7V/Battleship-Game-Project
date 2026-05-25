@@ -17,6 +17,9 @@ users = {}
 diction = senderobject.Sender()
 pepper = "3BM-42_A:"
 stop = False
+queue = []
+threads = []
+lock = threading.Lock()
 
 
 #region Send/recieve
@@ -28,8 +31,12 @@ def makeSendableMsg(msg):
     return struct.pack("I",len(msg)) + msg
 
 def makeSendableMENC(AESobj,msg):
+    try:
+        msg = msg.encode()
+    except:
+        pass
     nonce = os.urandom(12)
-    msg = AESobj.encrypt(nonce,msg)
+    msg = AESobj.encrypt(nonce,msg,b'')
     msg = nonce + msg
     return struct.pack("I",len(msg)) + msg
 
@@ -44,7 +51,8 @@ def recieveENC(sock,aesobj):
     L = struct.unpack("I",L)[0]
     response = sock.recv(L)
     nonce = response[:12]
-    return aesobj.decrypt(nonce, response[12:],b"")
+    msg = aesobj.decrypt(nonce, response[12:],b"")
+    return msg, msg.split(b'--||||--')
 #endregion
 
 #region loginhandle
@@ -155,7 +163,8 @@ def parse_msg(data,sock,aesobj):
                 enc = sha256(password.encode()).hexdigest()
                 if users[username][0] == enc:
                     msg = "LOGR"
-                    cli_logging_in = 1
+                    logged_in(sock,aesobj)
+                    return "logn"
                 else:
                     msg = "EROR--||||--002"
             else:
@@ -179,8 +188,6 @@ def parse_msg(data,sock,aesobj):
             try:
                 msg = makeSendableMENC(sock, aesobj)
                 sock.send(msg)
-                if cli_logging_in:
-                    logged_in(sock, aesobj)
             except:
                 pass
     except Exception as e:
@@ -214,14 +221,23 @@ def encryptexchange(sock,notuple=0):
 
 
 def clipassenc(sock,aesobj):
-    data = recieveENC(sock,aesobj)
-    parse_msg(data,sock,aesobj)
+    data = recieveENC(sock,aesobj)[0]
+    while True:
+        try:
+            msg = parse_msg(data,sock,aesobj)
+            if msg == 'logn':
+                break
+        except:
+            pass
 
 def logged_in(sock,aesobj):
-    print("Logged in!")
+    global queue,lock
+    lock.acquire()
+    queue.append((sock,aesobj))
+    lock.release()
 
 def mainLoop(ip="127.0.0.1",port=11111):
-    global stop, users
+    global stop, users, queue, threads
     with open('users.pkl', 'rb') as file:
         users = pickle.load(file)
         print(users)
@@ -231,6 +247,9 @@ def mainLoop(ip="127.0.0.1",port=11111):
     sock.bind((ip,port))
     sock.listen(100000)
     threads = []
+    gamethread = threading.Thread(target=createSessions,args=(threads,""))
+    gamethread.start()
+    threads.append(gamethread)
     while not stop:
         c,a = sock.accept()
         t = threading.Thread(target=encryptexchange,args=(c,""))
@@ -238,6 +257,47 @@ def mainLoop(ip="127.0.0.1",port=11111):
         threads.append(t)
     for t in threads:
         t.join()
+
+def createSessions(threads,notuple):
+    global queue, lock
+    while True:
+        lock.acquire()
+        time.sleep(1)
+        if len(queue) > 1:
+            socks1 = queue[0][0]
+            socks2 = queue[1][0]
+            if checkconnection(socks1) and checkconnection(socks2):
+                t = threading.Thread(target=manageNewSession,args=(socks1,socks2))
+                threads.append(t)
+                t.start()
+        lock.release()
+
+def manageNewSession(s1,s2):
+    global queue, lock
+    lock.acquire()
+    s1.send(makeSendableMENC(findAESobj(s1),"STRT--||||--BISMARCK"))
+    s2.send(makeSendableMENC(findAESobj(s2),"STRT--||||--HOOD"))
+    lock.release()
+
+def findAESobj(sock):
+    global queue
+    for x in queue:
+        if x[0] == sock:
+            return x[1]
+
+def checkconnection(sock):
+    global queue, lock
+    try:
+        sock.getpeername()
+        return True
+    except socket.error:
+        lock.acquire()
+        for x in queue:
+            if x[0] == sock:
+                queue.remove(x)
+                lock.release()
+        return False
+
 
 
 if __name__ == '__main__':
