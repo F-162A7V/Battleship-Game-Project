@@ -94,7 +94,7 @@ def loginFunc(sock, namefield, passfield, parent=0):
     resp = recieveENC(sock,aesobj)
     fields = resp.split(b'--||||--')
     if fields[0] == b"LOGR":
-        mainGameWin(sock)
+        mainpass(sock)
     elif fields[0] == b'EROR':
         pass
 
@@ -108,7 +108,7 @@ def signFunc(sock, namefield, passfield, email, parent=0):
     resp = recieveENC(sock,aesobj)
     fields = resp.split(b'--||||--')
     if fields[0] == b"SIGR":
-        mainGameWin(sock)
+        mainpass(sock)
     elif fields[0] == b'EROR':
         pass
 
@@ -284,11 +284,13 @@ def encrypt(sock):
     if fields[0] == b'AESK':
         AEkey = fields[1]
         aesobj = AESGCM(AEkey)
-        mainpass(sock)
+        mainpassfirst(sock)
 #endregion
 
+def mainpassfirst(sock):
+    Pick(sock)
+
 def mainpass(sock):
-    #Pick(sock)
     sock.send(makeSendableMENC("LOGN--||||--t1--||||--t1"))
     sock.send(makeSendableMENC("JOIN"))
     while True:
