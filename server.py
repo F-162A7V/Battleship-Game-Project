@@ -322,11 +322,15 @@ def checkconnection(sock):
 
 def mainLoop(ip="127.0.0.1",port=11111):
     global stop, users, queue, threads
-    with open('users.pkl', 'rb') as file:
-        users = pickle.load(file)
-        print(users)
-    with open('messages.pkl','rb') as file:
-        diction.socksender = pickle.load(file)
+    if os.path.isfile("users.pkl"):
+        with open('users.pkl', 'rb') as file:
+            users = pickle.load(file)
+            print(users)
+    if os.path.isfile("messages.pkl"):
+        with open('messages.pkl','rb') as file:
+            diction.socksender = pickle.load(file)
+    else:
+        diction.socksender = {}
     sock = socket.socket()
     sock.bind((ip,port))
     sock.listen(100000)
