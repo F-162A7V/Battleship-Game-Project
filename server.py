@@ -236,6 +236,90 @@ def logged_in(sock,aesobj):
     queue.append((sock,aesobj))
     lock.release()
 
+
+
+
+#region Game handling
+def createSessions(threads,notuple):
+    global queue, lock
+    while True:
+        time.sleep(1)
+        lock.acquire()
+        if len(queue) > 1:
+            socks1 = queue[0][0]
+            socks2 = queue[1][0]
+            if checkconnection(socks1) and checkconnection(socks2):
+                t = threading.Thread(target=manageNewSession,args=(socks1,socks2,queue[0][1],queue[1][1]))
+                threads.append(t)
+                t.start()
+        lock.release()
+
+def manageNewSession(s1,s2,s1aes,s2aes):
+    global queue, lock
+    s1.send(makeSendableMENC(s1aes,"STRT--||||--BISMARCK"))
+    s2.send(makeSendableMENC(s2aes,"STRT--||||--HOOD"))
+    lock.acquire()
+    s1.settimeout(0.5)
+    s2.settimoeout(0.5)
+    lock.release()
+    P1_obj = Player(400, 500, 0, 0, 0)
+    P2_obj = Player(600, 300, 0, 0, 1)
+    game_obj = pickle.dumps((P1_obj,P2_obj))
+    try:
+        while True:
+            msg1 = ''
+            msg2 = ''
+            try:
+                msg1 = recieveENC(s1,s1aes)[0]
+            except:
+                pass
+            try:
+                msg2 = recieveENC(s2,s2aes)[0]
+            except:
+                pass
+            P1_obj = upd_game(msg1,P1_obj)
+            P2_obj = upd_game(msg1,P2_obj)
+            P1_obj.change_coords()
+            P2_obj.change_coords()
+            game_obj = pickle.dumps((P1_obj, P2_obj))
+            msg = b'GSTT--||||--' + game_obj
+            m1 = makeSendableMENC(s1aes,msg)
+            m2 = makeSendableMENC(s2aes,msg)
+            s1.send(m1)
+            s2.send(m2)
+    except Exception:
+        traceback.print_exc()
+
+def upd_game(msg, plr):
+    if type(msg) == "string":
+        return plr
+    fields = msg.split(b"--||||--")
+    request = fields[0]
+    if request == b"PORT":
+        plr.turn(1, 1)
+    if request == b"STRB":
+        plr.turn(-1, 1)
+    if request == b"INCS":
+        plr.change_velocity(1, 0.05)
+    if request == b"DECS":
+        plr.change_velocity(-1, 0.05)
+    return plr
+
+
+def checkconnection(sock):
+    global queue, lock
+    try:
+        sock.getpeername()
+        return True
+    except socket.error:
+        lock.acquire()
+        for x in queue:
+            if x[0] == sock:
+                queue.remove(x)
+                lock.release()
+        return False
+#endregion
+
 def mainLoop(ip="127.0.0.1",port=11111):
     global stop, users, queue, threads
     with open('users.pkl', 'rb') as file:
@@ -257,47 +341,6 @@ def mainLoop(ip="127.0.0.1",port=11111):
         threads.append(t)
     for t in threads:
         t.join()
-
-def createSessions(threads,notuple):
-    global queue, lock
-    while True:
-        lock.acquire()
-        time.sleep(1)
-        if len(queue) > 1:
-            socks1 = queue[0][0]
-            socks2 = queue[1][0]
-            if checkconnection(socks1) and checkconnection(socks2):
-                t = threading.Thread(target=manageNewSession,args=(socks1,socks2))
-                threads.append(t)
-                t.start()
-        lock.release()
-
-def manageNewSession(s1,s2):
-    global queue, lock
-    lock.acquire()
-    s1.send(makeSendableMENC(findAESobj(s1),"STRT--||||--BISMARCK"))
-    s2.send(makeSendableMENC(findAESobj(s2),"STRT--||||--HOOD"))
-    lock.release()
-
-def findAESobj(sock):
-    global queue
-    for x in queue:
-        if x[0] == sock:
-            return x[1]
-
-def checkconnection(sock):
-    global queue, lock
-    try:
-        sock.getpeername()
-        return True
-    except socket.error:
-        lock.acquire()
-        for x in queue:
-            if x[0] == sock:
-                queue.remove(x)
-                lock.release()
-        return False
-
 
 
 if __name__ == '__main__':

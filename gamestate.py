@@ -36,13 +36,14 @@ def upd_screen(screen,hood,bis):
 running = True
 clock = pygame.time.Clock()
 while running:
+    screen.blit(bg_img,(0,0))
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
     pressed = pygame.key.get_pressed()
     check_inpts(pressed, P1_obj)
     P1_obj.change_coords()
-    screen.blit(bg_img,(0,0))
     new_hood = pygame.transform.rotate(hood_img, P1_obj.angle)
     player1_rect = new_hood.get_rect(center=(P1_obj.x, P1_obj.y))
     upd_screen(screen,new_hood,bismarck_img)

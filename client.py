@@ -2,6 +2,8 @@ __author__ = "F-162A7V"
 
 import random
 import socket, pickle, pygame,struct,threading,os,tkinter,winclass
+import traceback
+
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -160,6 +162,7 @@ def forgotFunc(sock, textvar, stage, parent=0):
 
 #endregion
 
+#region Game
 def mainGameWin(sock,type):
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
@@ -177,12 +180,20 @@ def mainGameWin(sock,type):
                 break
         pressed = pygame.key.get_pressed()
         msg = check_inpts(pressed)
+
         screen.blit(bg_img, (0, 0))
+        upd_msg = recieveENC(sock)
+        fields = msg.split(b'--||||--')
+        if (fields[0] == b'GSTT'):
+            game_obj = pickle.loads(fields[1])
+            P1_obj = game_obj[0]
+            P2_obj = game_obj[1]
         new_hood = pygame.transform.rotate(hood_img, P1_obj.angle)
         player1_rect = new_hood.get_rect(center=(P1_obj.x, P1_obj.y))
-        upd_msg = recieveENC(sock)
-        upd_screen(screen, new_hood, bismarck_img)
-        clock.tick(10)
+        new_bis = pygame.transform.rotate(bismarck_img,P2_obj.angle)
+        player2_rect = new_bis.get_rect(center=(P2_obj.x, P2_obj.y))
+        upd_screen(screen, new_hood, bismarck_img,player1_rect,player2_rect)
+        clock.tick(60)
 
 def check_inpts(pressed_keys):
     msg = ""
@@ -207,7 +218,7 @@ def handlegameupdates(sock,request=0):
     if request:
         msg = makeSendableMENC(request)
         sock.send(msg)
-
+#endregion
 
 #region Encryption
 def GenRSAkeys():
@@ -287,7 +298,7 @@ def mainpass(sock):
 
 def parse_msg(msg,sock):
     msg = msg.decode()
-    fields = msg.split()
+    fields = msg.split("--||||--")
     if fields[0] == "STRT":
         type = 0
         if fields[1] == "BISMARCK":
