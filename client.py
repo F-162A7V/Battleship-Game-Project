@@ -34,17 +34,28 @@ def makeSendableMENC(msg):
     msg = nonce + msg
     return struct.pack("I",len(msg)) + msg
 
+
+def recieveChunks(sock, length):
+    data = b''
+    while len(data) < length:
+        newdata = sock.recv(length - len(data))
+        if newdata == b'':
+            return
+        data += newdata
+    return data
+
+
 def recieveData(sock):
     L = sock.recv(4)
     L = struct.unpack("I",L)[0]
-    response = sock.recv(L)
+    response = recieveChunks(sock,L)
     return response
 
 def recieveENC(sock):
     global aesobj
     L = sock.recv(4)
     L = struct.unpack("I",L)[0]
-    response = sock.recv(L)
+    response = recieveChunks(sock,L)
     nonce = response[:12]
     return aesobj.decrypt(nonce, response[12:],b"")
 #endregion
@@ -160,7 +171,6 @@ def forgotFunc(sock, textvar, stage, parent=0):
 
 #region Game
 def mainGameWin(sock,type):
-    print('h3')
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
     pygame.display.set_caption("DENMARK STRAIT")
@@ -177,10 +187,10 @@ def mainGameWin(sock,type):
                 break
         pressed = pygame.key.get_pressed()
         msg = check_inpts(pressed)
-
+        sock.send(makeSendableMENC(msg))
         screen.blit(bg_img, (0, 0))
         upd_msg = recieveENC(sock)
-        fields = msg.split(b'--||||--')
+        fields = upd_msg.split(b'--||||--')
         if (fields[0] == b'GSTT'):
             game_obj = pickle.loads(fields[1])
             P1_obj = game_obj[0]
@@ -189,8 +199,8 @@ def mainGameWin(sock,type):
         player1_rect = new_hood.get_rect(center=(P1_obj.x, P1_obj.y))
         new_bis = pygame.transform.rotate(bismarck_img,P2_obj.angle)
         player2_rect = new_bis.get_rect(center=(P2_obj.x, P2_obj.y))
-        upd_screen(screen, new_hood, bismarck_img,player1_rect,player2_rect)
-        clock.tick(60)
+        upd_screen(screen, new_hood, new_bis,player1_rect,player2_rect)
+        clock.tick(30)
 
 def check_inpts(pressed_keys):
     msg = ""
@@ -285,14 +295,16 @@ def encrypt(sock):
 #endregion
 
 def mainpassfirst(sock):
-    Pick(sock)
+    #Pick(sock)
+    sock.send(makeSendableMENC("LOGN--||||--t1--||||--t1"))
+    recieveENC(sock)
+    mainpass(sock)
 
 def mainpass(sock):
     sock.send(makeSendableMENC("JOIN"))
     stop = False
     while not stop:
         msg = recieveENC(sock)
-        print(msg)
         parse_msg(msg,sock)
 
 

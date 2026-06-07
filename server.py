@@ -3,6 +3,8 @@ __author__ = "F-162A7V"
 
 
 import socket, pickle, threading, struct,pygame,os, senderobject, random, smtplib,ssl,time,traceback,sys
+
+from dns.update import Update
 from email_validator import validate_email
 from email.message import EmailMessage
 from cryptography.hazmat.primitives import serialization,hashes
@@ -40,16 +42,25 @@ def makeSendableMENC(AESobj,msg):
     msg = nonce + msg
     return struct.pack("I",len(msg)) + msg
 
+def recieveChunks(sock, length):
+    data = b''
+    while len(data) < length:
+        newdata = sock.recv(length - len(data))
+        if newdata == b'':
+            return
+        data += newdata
+    return data
+
 def recieveData(sock):
-    L = sock.recv(4)
+    L = recieveChunks(sock,4)
     L = struct.unpack("I",L)[0]
-    response = sock.recv(L)
+    response = recieveChunks(sock,L)
     return response, response.split(b"--||||--")
 
 def recieveENC(sock,aesobj):
-    L = sock.recv(4)
+    L = recieveChunks(sock,4)
     L = struct.unpack("I",L)[0]
-    response = sock.recv(L)
+    response = recieveChunks(sock,L)
     nonce = response[:12]
     msg = aesobj.decrypt(nonce, response[12:],b"")
     return msg, msg.split(b'--||||--')
@@ -225,6 +236,7 @@ def clipassenc(sock,aesobj):
             with lock:
                 if data.split(b'--||||--')[0] in (b'JOIN'):
                     stop = True
+                    queue.append((sock,aesobj))
         except:
             traceback.print_exc()
 
@@ -232,6 +244,21 @@ def clipassenc(sock,aesobj):
 
 
 #region Game handling
+def recieveENC_game(sock, aesobj):
+    try:
+        L_bytes = recieveChunks(sock, 4)
+        if not L_bytes:
+            return None
+        L = struct.unpack("I", L_bytes)[0]
+        data = recieveChunks(sock, L)
+        if not data or len(data) < 12:
+            return None
+        nonce = data[:12]
+        return aesobj.decrypt(nonce, data[12:], b"")
+    except:
+        return None
+
+
 def createSessions(threads,notuple):
     global queue, lock
     while True:
@@ -248,43 +275,44 @@ def createSessions(threads,notuple):
 
 def manageNewSession(s1,s2,s1aes,s2aes):
     global queue, lock
+    starttime = time.perf_counter()
     s1.send(makeSendableMENC(s1aes,"STRT--||||--BISMARCK"))
     s2.send(makeSendableMENC(s2aes,"STRT--||||--HOOD"))
-    lock.acquire()
-    s1.settimeout(0.5)
-    s2.settimeout(0.5)
-    lock.release()
+    s1.setblocking(False)
+    s2.setblocking(False)
     P1_obj = Player(400, 500, 0, 0, 0)
     P2_obj = Player(600, 300, 0, 0, 1)
     game_obj = pickle.dumps((P1_obj,P2_obj))
-    try:
-        while True:
-            msg1 = ''
-            msg2 = ''
-            try:
-                msg1 = recieveENC(s1,s1aes)[0]
-            except:
-                pass
-            try:
-                msg2 = recieveENC(s2,s2aes)[0]
-            except:
-                pass
-            P1_obj = upd_game(msg1,P1_obj)
+    while True:
+        msg1 = ''
+        msg2 = ''
+        try:
+            msg1 = recieveENC(s1, s1aes)[0]
+        except:
+            pass
+        try:
+            msg2 = recieveENC(s2, s2aes)[0]
+        except:
+            pass
+        if msg1:
+            P1_obj = upd_game(msg1, P1_obj)
+        if msg2:
             P2_obj = upd_game(msg2,P2_obj)
-            P1_obj.change_coords()
-            P2_obj.change_coords()
-            game_obj = pickle.dumps((P1_obj, P2_obj))
-            msg = b'GSTT--||||--' + game_obj
-            m1 = makeSendableMENC(s1aes,msg)
-            m2 = makeSendableMENC(s2aes,msg)
-            s1.send(m1)
-            s2.send(m2)
-    except Exception:
-        traceback.print_exc()
+        P1_obj.change_coords()
+        print(P1_obj.x)
+        P2_obj.change_coords()
+        game_obj = pickle.dumps((P1_obj, P2_obj))
+        msg = b'GSTT--||||--' + game_obj
+        m1 = makeSendableMENC(s1aes,msg)
+        m2 = makeSendableMENC(s2aes,msg)
+        s1.send(m1)
+        s2.send(m2)
+        elapsed = time.perf_counter() - starttime
+        if elapsed < 1/30:
+            time.sleep(1/30 - elapsed)
+        starttime = time.perf_counter()
 
 def upd_game(msg, plr):
-    if type(msg) is str:
-        return plr
     fields = msg.split(b"--||||--")
     request = fields[0]
     if request == b"PORT":
@@ -302,14 +330,12 @@ def checkconnection(sock):
     global queue, lock
     try:
         sock.getpeername()
-        print("t")
         return True
     except socket.error:
         lock.acquire()
         for x in queue:
             if x[0] == sock:
                 queue.remove(x)
-                print("f")
                 lock.release()
                 return False
         return False
