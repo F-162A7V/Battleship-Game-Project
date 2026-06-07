@@ -1,9 +1,8 @@
 __author__ = "F-162A7V"
 
 import random
-import socket, pickle, pygame,struct,threading,os,tkinter,winclass
+import socket, pickle, pygame,struct,threading,os,tkinter,winclass, sys
 import traceback
-
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -86,12 +85,11 @@ def signWin(sock, parent=0):
 
 
 def loginFunc(sock, namefield, passfield, parent=0):
-    global aesobj
     if parent:
         parent.root.destroy()
     data = f"LOGN--||||--{namefield.text_var.get()}--||||--{passfield.text_var.get()}"
     sock.send(makeSendableMENC(data))
-    resp = recieveENC(sock,aesobj)
+    resp = recieveENC(sock)
     fields = resp.split(b'--||||--')
     if fields[0] == b"LOGR":
         mainpass(sock)
@@ -100,12 +98,11 @@ def loginFunc(sock, namefield, passfield, parent=0):
 
 
 def signFunc(sock, namefield, passfield, email, parent=0):
-    global aesobj
     if parent:
         parent.root.destroy()
     data = f"SIGN--||||--{email.text_var.get()}--||||--{namefield.text_var.get()}--||||--{passfield.text_var.get()}"
     sock.send(makeSendableMENC(data))
-    resp = recieveENC(sock,aesobj)
+    resp = recieveENC(sock)
     fields = resp.split(b'--||||--')
     if fields[0] == b"SIGR":
         mainpass(sock)
@@ -134,27 +131,26 @@ def forgotWin(sock, stage,parent=0):
 
 
 def forgotFunc(sock, textvar, stage, parent=0):
-    global aesobj
     if parent:
         parent.root.destroy()
     if stage == 0:
         data = f"FGTP--||||--{textvar.text_var.get()}"
         sock.send(makeSendableMENC(data))
-        resp = recieveENC(sock,aesobj)
+        resp = recieveENC(sock)
         fields = resp.split(b'--||||--')
         if fields[0] == b"FGPR":
             forgotWin(sock,1,parent)
     elif stage == 1:
         data = f'FPCD--||||--{textvar.text_var.get()}'
         sock.send(makeSendableMENC(data))
-        resp = recieveENC(sock,aesobj)
+        resp = recieveENC(sock)
         fields = resp.split(b'--||||--')
         if fields[0] == b"FPCR":
             forgotWin(sock,2,parent)
     elif stage == 2:
         data = f'NEWP--||||--{textvar.text_var.get()}'
         sock.send(makeSendableMENC(data))
-        resp = recieveENC(sock,aesobj)
+        resp = recieveENC(sock)
         fields = resp.split(b'--||||--')
         if fields[0] == b"NEWR":
             print("Password changed successfully")
@@ -164,6 +160,7 @@ def forgotFunc(sock, textvar, stage, parent=0):
 
 #region Game
 def mainGameWin(sock,type):
+    print('h3')
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
     pygame.display.set_caption("DENMARK STRAIT")
@@ -291,10 +288,11 @@ def mainpassfirst(sock):
     Pick(sock)
 
 def mainpass(sock):
-    sock.send(makeSendableMENC("LOGN--||||--t1--||||--t1"))
     sock.send(makeSendableMENC("JOIN"))
-    while True:
+    stop = False
+    while not stop:
         msg = recieveENC(sock)
+        print(msg)
         parse_msg(msg,sock)
 
 
@@ -307,13 +305,13 @@ def parse_msg(msg,sock):
             type = 1
         mainGameWin(sock,type)
 
-def main():
+def main(ip,port):
     if not os.path.isfile("/private_key.pem") or not os.path.isfile("/public_key.pem"):
         GenRSAkeys()
     sock = socket.socket()
     while True:
         try:
-            sock.connect(("127.0.0.1",11111))
+            sock.connect((ip,port))
             break
         except:
             print("Error connecting: server unavailable")
@@ -321,5 +319,10 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        sip = sys.argv[1]
+        sport = sys.argv[2]
+        main(sip,sport)
+    except:
+        main("127.0.0.1",11111)
 

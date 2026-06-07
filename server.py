@@ -2,7 +2,7 @@ __author__ = "F-162A7V"
 
 
 
-import socket, pickle, threading, struct,pygame,os, senderobject, random, smtplib,ssl,time,traceback
+import socket, pickle, threading, struct,pygame,os, senderobject, random, smtplib,ssl,time,traceback,sys
 from email_validator import validate_email
 from email.message import EmailMessage
 from cryptography.hazmat.primitives import serialization,hashes
@@ -133,10 +133,8 @@ def parse_msg(data,sock,aesobj):
     global diction,pepper,users
     data = data.decode()
     fields = data.split('--||||--')
-    cli_logging_in = 0
     try:
         code = fields[0]
-        print(fields)
         msg = ''
         if code == 'SIGN':
             email = fields[1]
@@ -151,7 +149,6 @@ def parse_msg(data,sock,aesobj):
                 with open("users.pkl", "wb") as fil:
                     pickle.dump(users, fil)
                 msg = 'SIGR'
-                cli_logging_in = 1
             else:
                 msg = 'EROR--||||--004'
 
@@ -163,33 +160,19 @@ def parse_msg(data,sock,aesobj):
                 enc = sha256(password.encode()).hexdigest()
                 if users[username][0] == enc:
                     msg = "LOGR"
-                    logged_in(sock,aesobj)
-                    return "logn"
                 else:
                     msg = "EROR--||||--002"
             else:
                 msg = "EROR--||||--002"
-        print(msg)
-
         if code == "FGTP":
             passchangesequence(sock,fields[1],aesobj)
-        if code == "MESG":
-            keys = diction.socksender.keys()
-            if fields[2] in keys:
-                msg = f'MESS--||||--{fields[1]}--||||--{fields[3]}'
-            else:
-                msg = "EROR--||||--003"
-            msg = "EROR--||||--005"
-        if msg[:4] == "MESS":
-            diction.AddMsg(fields[2], msg)
-            with open("messages.pkl", "wb") as fil:
-                pickle.dump(diction.socksender, fil)
         else:
             try:
-                msg = makeSendableMENC(sock, aesobj)
+                msg = makeSendableMENC(aesobj,msg)
                 sock.send(msg)
-            except:
-                pass
+                return msg
+            except Exception as e2:
+                traceback.print_exc()
     except Exception as e:
         traceback.print_exc()
 
@@ -221,20 +204,29 @@ def encryptexchange(sock,notuple=0):
 
 
 def clipassenc(sock,aesobj):
-    data = recieveENC(sock,aesobj)[0]
-    while True:
-        try:
-            msg = parse_msg(data,sock,aesobj)
-            if msg == 'logn':
-                break
-        except:
-            pass
-
-def logged_in(sock,aesobj):
     global queue,lock
-    lock.acquire()
-    queue.append((sock,aesobj))
-    lock.release()
+    print(aesobj)
+    stop = False
+    while not stop:
+        try:
+            data = recieveENC(sock,aesobj)[0]
+            msg = parse_msg(data,sock,aesobj)
+            print(data)
+            with lock:
+                if data.split(b'--||||--')[0] in (b'SIGN',b'LOGN'):
+                    stop = True
+        except:
+            traceback.print_exc()
+    stop = False
+    while not stop:
+        try:
+            data = recieveENC(sock,aesobj)[0]
+            print(data)
+            with lock:
+                if data.split(b'--||||--')[0] in (b'JOIN'):
+                    stop = True
+        except:
+            traceback.print_exc()
 
 
 
@@ -260,7 +252,7 @@ def manageNewSession(s1,s2,s1aes,s2aes):
     s2.send(makeSendableMENC(s2aes,"STRT--||||--HOOD"))
     lock.acquire()
     s1.settimeout(0.5)
-    s2.settimoeout(0.5)
+    s2.settimeout(0.5)
     lock.release()
     P1_obj = Player(400, 500, 0, 0, 0)
     P2_obj = Player(600, 300, 0, 0, 1)
@@ -278,7 +270,7 @@ def manageNewSession(s1,s2,s1aes,s2aes):
             except:
                 pass
             P1_obj = upd_game(msg1,P1_obj)
-            P2_obj = upd_game(msg1,P2_obj)
+            P2_obj = upd_game(msg2,P2_obj)
             P1_obj.change_coords()
             P2_obj.change_coords()
             game_obj = pickle.dumps((P1_obj, P2_obj))
@@ -291,7 +283,7 @@ def manageNewSession(s1,s2,s1aes,s2aes):
         traceback.print_exc()
 
 def upd_game(msg, plr):
-    if type(msg) == "string":
+    if type(msg) is str:
         return plr
     fields = msg.split(b"--||||--")
     request = fields[0]
@@ -310,13 +302,16 @@ def checkconnection(sock):
     global queue, lock
     try:
         sock.getpeername()
+        print("t")
         return True
     except socket.error:
         lock.acquire()
         for x in queue:
             if x[0] == sock:
                 queue.remove(x)
+                print("f")
                 lock.release()
+                return False
         return False
 #endregion
 
@@ -325,10 +320,6 @@ def mainLoop(ip="127.0.0.1",port=11111):
     if os.path.isfile("users.pkl"):
         with open('users.pkl', 'rb') as file:
             users = pickle.load(file)
-            print(users)
-    if os.path.isfile("messages.pkl"):
-        with open('messages.pkl','rb') as file:
-            diction.socksender = pickle.load(file)
     else:
         diction.socksender = {}
     sock = socket.socket()
@@ -348,5 +339,11 @@ def mainLoop(ip="127.0.0.1",port=11111):
 
 
 if __name__ == '__main__':
-    mainLoop()
+    ip = "127.0.0.1"
+    port = 11111
+    if len(sys.argv) >= 2:
+        ip = sys.argv[1]
+    if len(sys.argv) >= 3:
+        port = sys.argv[2]
+    mainLoop(ip,port)
 
