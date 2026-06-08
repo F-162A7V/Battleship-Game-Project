@@ -2,7 +2,7 @@ __author__ = "F-162A7V"
 
 
 
-import socket, pickle, threading, struct,pygame,os, senderobject, random, smtplib,ssl,time,traceback,sys
+import socket, pickle, threading, struct,pygame,os, senderobject, random, smtplib,ssl,time,traceback,sys, math
 
 from dns.update import Update
 from email_validator import validate_email
@@ -270,6 +270,12 @@ def createSessions(threads,notuple):
             if checkconnection(socks1) and checkconnection(socks2):
                 t = threading.Thread(target=manageNewSession,args=(socks1,socks2,queue[0][1],queue[1][1]))
                 threads.append(t)
+                for x in queue:
+                    if x[0] == socks1:
+                        queue.remove(x)
+                for x in queue:
+                    if x[0] == socks2:
+                        queue.remove(x)
                 t.start()
         lock.release()
 
@@ -280,11 +286,8 @@ def manageNewSession(s1,s2,s1aes,s2aes):
     s2.send(makeSendableMENC(s2aes,"STRT--||||--HOOD"))
     #s1.setblocking(False)
     #s2.setblocking(False)
-    P1_obj = Player(400, 500, 0, 0, 0)
-    P2_obj = Player(600, 300, 0, 0, 1)
-    p1 = (400,500,0,0,0)
-    p2 = (600,300,0,0,1)
-    x = 0
+    p1 = Player(400, 500, 0, 0, 0)
+    p2 = Player(600, 300, 0, 0, 1)
     while True:
         s1.settimeout(0.1)
         s2.settimeout(0.1)
@@ -300,42 +303,16 @@ def manageNewSession(s1,s2,s1aes,s2aes):
         except:
             pass
         if msg1:
-            fields = msg1.split(b"--||||--")
-            request = fields[0]
-            if request == b"PORT":
-                p1[2] += 1
-            if request == b"STRB":
-                p1[2] += -1
-            if request == b"INCS":
-                p1[3] += 0.05
-            if request == b"DECS":
-                p1[3] -= 0.05
+            p1 = upd_game(msg1,p1)
         if msg2:
-            fields = msg2.split(b"--||||--")
-            request = fields[0]
-            if request == b"PORT":
-                p2[2] += 1
-            if request == b"STRB":
-                p2[2] += -1
-            if request == b"INCS":
-                p2[3] += 0.05
-            if request == b"DECS":
-                p2[3] -= 0.05
-        print("------------")
-        print(P1_obj.x)
-        P1_obj.change_coords()
-        print(P1_obj.x)
-        print("------------")
-        P2_obj.change_coords()
-        if ()
-        game_obj = pickle.dumps((P1_obj, P2_obj))
+            p2 = upd_game(msg2,p2)
+        p1.change_coords()
+        p2.change_coords()
+        game_obj = pickle.dumps((p1, p2))
         msg = b'GSTT--||||--' + game_obj
-        m1 = makeSendableMENC(s1aes,msg)
-        m2 = makeSendableMENC(s2aes,msg)
-        s1.send(m1)
-        s2.send(m2)
+        s1.send(makeSendableMENC(s1aes,msg))
+        s2.send(makeSendableMENC(s2aes,msg))
         elapsed = time.perf_counter() - starttime
-        x+=1
         if elapsed < 1/30:
             time.sleep(1/30 - elapsed)
         starttime = time.perf_counter()
@@ -361,13 +338,11 @@ def checkconnection(sock):
         sock.getpeername()
         return True
     except socket.error:
-        lock.acquire()
         for x in queue:
             if x[0] == sock:
                 queue.remove(x)
-                lock.release()
                 return False
-        return False
+
 #endregion
 
 def mainLoop(ip="127.0.0.1",port=11111):

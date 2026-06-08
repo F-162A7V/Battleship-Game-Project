@@ -170,38 +170,40 @@ def forgotFunc(sock, textvar, stage, parent=0):
 #endregion
 
 #region Game
-def mainGameWin(sock,type):
+def mainGameWin(sock,typeship):
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
-    whoami = "HOOD"
-    if type == 0:
-        whoami = "BISMARCK"
+    whoami = "BISMARCK"
+    if typeship == 0:
+        whoami = "HOOD"
     pygame.display.set_caption(f"DENMARK STRAIT - {whoami}")
     bg_img = pygame.image.load("assets/water2.jpg").convert()
     hood_img = pygame.image.load("assets/hoodplayer_2.png").convert_alpha()
     bismarck_img = pygame.image.load("assets/bismarckplayer_2.png").convert_alpha()
-    P1_obj = Player(400, 500, 0, 0, 0)
-    P2_obj = Player(600, 300, 0, 0, 1)
+    p1 = Player(400, 500, 0, 0, 0)
+    p2 = Player(600, 300, 0, 0, 1)
     clock = pygame.time.Clock()
     while True:
+        msg = ""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 msg = "LEAV"
                 break
         pressed = pygame.key.get_pressed()
-        msg = check_inpts(pressed)
+        if (msg != "LEAV"):
+            msg = check_inpts(pressed)
         sock.send(makeSendableMENC(msg))
         screen.blit(bg_img, (0, 0))
         upd_msg = recieveENC(sock)
         fields = upd_msg.split(b'--||||--')
         if (fields[0] == b'GSTT'):
             game_obj = pickle.loads(fields[1])
-            P1_obj = game_obj[0]
-            P2_obj = game_obj[1]
-        new_hood = pygame.transform.rotate(hood_img, P1_obj.angle)
-        player1_rect = new_hood.get_rect(center=(P1_obj.x, P1_obj.y))
-        new_bis = pygame.transform.rotate(bismarck_img,P2_obj.angle)
-        player2_rect = new_bis.get_rect(center=(P2_obj.x, P2_obj.y))
+            p1 = game_obj[0]
+            p2 = game_obj[1]
+        new_hood = pygame.transform.rotate(hood_img, p1.angle)
+        player1_rect = new_hood.get_rect(center=(p1.x, p1.y))
+        new_bis = pygame.transform.rotate(bismarck_img,p2.angle)
+        player2_rect = new_bis.get_rect(center=(p2.x, p2.y))
         upd_screen(screen, new_hood, new_bis,player1_rect,player2_rect)
         clock.tick(30)
 
