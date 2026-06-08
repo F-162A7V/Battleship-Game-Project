@@ -105,7 +105,7 @@ def loginFunc(sock, namefield, passfield, parent=0):
     if fields[0] == b"LOGR":
         mainpass(sock)
     elif fields[0] == b'EROR':
-        pass
+        print("ERROR: USER/PASSWORD INCORRECT, RETRY.")
 
 
 def signFunc(sock, namefield, passfield, email, parent=0):
@@ -118,7 +118,7 @@ def signFunc(sock, namefield, passfield, email, parent=0):
     if fields[0] == b"SIGR":
         mainpass(sock)
     elif fields[0] == b'EROR':
-        pass
+        print("ERROR: USER/PASSWORD INCORRECT, RETRY.")
 
 
 def forgotWin(sock, stage,parent=0):
@@ -300,10 +300,7 @@ def encrypt(sock):
 #endregion
 
 def mainpassfirst(sock):
-    #Pick(sock)
-    sock.send(makeSendableMENC("LOGN--||||--t1--||||--t1"))
-    recieveENC(sock)
-    mainpass(sock)
+    Pick(sock)
 
 def mainpass(sock):
     sock.send(makeSendableMENC("JOIN"))
@@ -336,10 +333,11 @@ def main(ip,port):
 
 
 if __name__ == '__main__':
-    try:
-        sip = sys.argv[1]
-        sport = sys.argv[2]
-        main(sip,sport)
-    except:
-        main("127.0.0.1",11111)
+    ip = "127.0.0.1"
+    port = 11111
+    if len(sys.argv) >= 2:
+        ip = sys.argv[1]
+    if len(sys.argv) >= 3:
+        port = sys.argv[2]
+    main(ip,port)
 
