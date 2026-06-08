@@ -218,7 +218,6 @@ def encryptexchange(sock,notuple=0):
 
 def clipassenc(sock,aesobj):
     global queue,lock
-    print(aesobj)
     stop = False
     while not stop:
         data = recieveENC(sock,aesobj)[0]
