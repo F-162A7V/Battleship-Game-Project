@@ -47,8 +47,10 @@ def recieveChunks(sock, length):
     while len(data) < length:
         newdata = sock.recv(length - len(data))
         if newdata == b'':
-            return
+            return "e"
         data += newdata
+    if (data == b''):
+        return "e"
     return data
 
 def recieveData(sock):
@@ -219,26 +221,18 @@ def clipassenc(sock,aesobj):
     print(aesobj)
     stop = False
     while not stop:
-        try:
-            data = recieveENC(sock,aesobj)[0]
-            msg = parse_msg(data,sock,aesobj)
-            print(data)
-            with lock:
-                if data.split(b'--||||--')[0] in (b'SIGN',b'LOGN'):
-                    stop = True
-        except:
-            traceback.print_exc()
+        data = recieveENC(sock,aesobj)[0]
+        msg = parse_msg(data,sock,aesobj)
+        with lock:
+            if data.split(b'--||||--')[0] in (b'SIGN',b'LOGN'):
+                stop = True
     stop = False
     while not stop:
-        try:
-            data = recieveENC(sock,aesobj)[0]
-            print(data)
-            with lock:
-                if data.split(b'--||||--')[0] in (b'JOIN'):
-                    stop = True
-                    queue.append((sock,aesobj))
-        except:
-            traceback.print_exc()
+        data = recieveENC(sock,aesobj)[0]
+        with lock:
+            if data.split(b'--||||--')[0] in (b'JOIN'):
+                stop = True
+                queue.append((sock,aesobj))
 
 
 
