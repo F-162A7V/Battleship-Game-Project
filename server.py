@@ -278,12 +278,17 @@ def manageNewSession(s1,s2,s1aes,s2aes):
     starttime = time.perf_counter()
     s1.send(makeSendableMENC(s1aes,"STRT--||||--BISMARCK"))
     s2.send(makeSendableMENC(s2aes,"STRT--||||--HOOD"))
-    s1.setblocking(False)
-    s2.setblocking(False)
+    #s1.setblocking(False)
+    #s2.setblocking(False)
     P1_obj = Player(400, 500, 0, 0, 0)
     P2_obj = Player(600, 300, 0, 0, 1)
-    game_obj = pickle.dumps((P1_obj,P2_obj))
+    p1 = (400,500,0,0,0)
+    p2 = (600,300,0,0,1)
+    x = 0
     while True:
+        s1.settimeout(0.1)
+        s2.settimeout(0.1)
+        lock.acquire()
         msg1 = ''
         msg2 = ''
         try:
@@ -295,12 +300,34 @@ def manageNewSession(s1,s2,s1aes,s2aes):
         except:
             pass
         if msg1:
-            P1_obj = upd_game(msg1, P1_obj)
+            fields = msg1.split(b"--||||--")
+            request = fields[0]
+            if request == b"PORT":
+                p1[2] += 1
+            if request == b"STRB":
+                p1[2] += -1
+            if request == b"INCS":
+                p1[3] += 0.05
+            if request == b"DECS":
+                p1[3] -= 0.05
         if msg2:
-            P2_obj = upd_game(msg2,P2_obj)
+            fields = msg2.split(b"--||||--")
+            request = fields[0]
+            if request == b"PORT":
+                p2[2] += 1
+            if request == b"STRB":
+                p2[2] += -1
+            if request == b"INCS":
+                p2[3] += 0.05
+            if request == b"DECS":
+                p2[3] -= 0.05
+        print("------------")
+        print(P1_obj.x)
         P1_obj.change_coords()
         print(P1_obj.x)
+        print("------------")
         P2_obj.change_coords()
+        if ()
         game_obj = pickle.dumps((P1_obj, P2_obj))
         msg = b'GSTT--||||--' + game_obj
         m1 = makeSendableMENC(s1aes,msg)
@@ -308,9 +335,11 @@ def manageNewSession(s1,s2,s1aes,s2aes):
         s1.send(m1)
         s2.send(m2)
         elapsed = time.perf_counter() - starttime
+        x+=1
         if elapsed < 1/30:
             time.sleep(1/30 - elapsed)
         starttime = time.perf_counter()
+        lock.release()
 
 def upd_game(msg, plr):
     fields = msg.split(b"--||||--")

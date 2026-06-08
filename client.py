@@ -173,7 +173,10 @@ def forgotFunc(sock, textvar, stage, parent=0):
 def mainGameWin(sock,type):
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
-    pygame.display.set_caption("DENMARK STRAIT")
+    whoami = "HOOD"
+    if type == 0:
+        whoami = "BISMARCK"
+    pygame.display.set_caption(f"DENMARK STRAIT - {whoami}")
     bg_img = pygame.image.load("assets/water2.jpg").convert()
     hood_img = pygame.image.load("assets/hoodplayer_2.png").convert_alpha()
     bismarck_img = pygame.image.load("assets/bismarckplayer_2.png").convert_alpha()
@@ -312,9 +315,9 @@ def parse_msg(msg,sock):
     msg = msg.decode()
     fields = msg.split("--||||--")
     if fields[0] == "STRT":
-        type = 0
+        type = 1
         if fields[1] == "BISMARCK":
-            type = 1
+            type = 0
         mainGameWin(sock,type)
 
 def main(ip,port):
