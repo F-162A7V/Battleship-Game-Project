@@ -14,6 +14,8 @@ from battleshiplayer import Player
 
 pause = False
 aesobj = ""
+pub_key = ""
+priv_key = ""
 
 #region Send/recieve
 def makeSendableMsg(msg):
@@ -234,24 +236,14 @@ def handlegameupdates(sock,request=0):
 
 #region Encryption
 def GenRSAkeys():
+    global pub_key, priv_key
     private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=2048
     )
-    pem_private = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.BestAvailableEncryption(b'mypassword')
-    )
-    with open('private_key.pem', 'wb') as f:
-        f.write(pem_private)
+    priv_key = private_key
     public_key = private_key.public_key()
-    pem_public = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.PKCS1,
-    )
-    with open('public_key.pem', 'wb') as f:
-        f.write(pem_public)
+    pub_key = public_key
 
 def load_keys():
     with open("private_key.pem", "rb") as key_file:
@@ -268,9 +260,10 @@ def load_keys():
         )
     return private_key, public_key
 
-def RSAdec(encrypted_message,private_key):
+def RSAdec(encrypted_message):
+    global priv_key
     try:
-        message = private_key.decrypt(
+        message = priv_key.decrypt(
             encrypted_message,
             padding.OAEP(
                 mgf=padding.MGF1(algorithm=hashes.SHA256()),
@@ -283,15 +276,14 @@ def RSAdec(encrypted_message,private_key):
         return b'RSAdecFAIL'
 
 def encrypt(sock):
-    global aesobj
-    private_key,public_key = load_keys()
-    pem_public = public_key.public_bytes(
+    global aesobj, priv_key, pub_key
+    pem_public = pub_key.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.PKCS1,)
     msg = b'HELO--||||--' + pem_public
     sock.send(makeSendableMsg(msg))
     resp = recieveData(sock)
-    decresp = RSAdec(resp,private_key)
+    decresp = RSAdec(resp)
     fields = decresp.split(b'--||||--')
     if fields[0] == b'AESK':
         AEkey = fields[1]
@@ -320,8 +312,7 @@ def parse_msg(msg,sock):
         mainGameWin(sock,type)
 
 def main(ip,port):
-    if not os.path.isfile("/private_key.pem") or not os.path.isfile("/public_key.pem"):
-        GenRSAkeys()
+    GenRSAkeys()
     sock = socket.socket()
     while True:
         try:
