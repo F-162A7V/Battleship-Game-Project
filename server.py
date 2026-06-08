@@ -278,13 +278,11 @@ def manageNewSession(s1,s2,s1aes,s2aes):
     starttime = time.perf_counter()
     s1.send(makeSendableMENC(s1aes,"STRT--||||--BISMARCK"))
     s2.send(makeSendableMENC(s2aes,"STRT--||||--HOOD"))
-    #s1.setblocking(False)
-    #s2.setblocking(False)
+    s1.settimeout(0.1)
+    s2.settimeout(0.1)
     p1 = Player(400, 500, 0, 0, 0)
     p2 = Player(600, 300, 0, 0, 1)
     while True:
-        s1.settimeout(0.1)
-        s2.settimeout(0.1)
         lock.acquire()
         msg1 = ''
         msg2 = ''
@@ -316,9 +314,9 @@ def upd_game(msg, plr):
     fields = msg.split(b"--||||--")
     request = fields[0]
     if request == b"PORT":
-        plr.turn(1, 1)
+        plr.turn(1, 0.5)
     if request == b"STRB":
-        plr.turn(-1, 1)
+        plr.turn(-1, 0.5)
     if request == b"INCS":
         plr.change_velocity(1, 0.05)
     if request == b"DECS":

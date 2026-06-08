@@ -13,20 +13,26 @@ class Player():
         self.velocity = velocity
         self.ptype = ptype
         if ptype == 1:
-            self.max_speed = 30*0.04
+            self.max_speed = 30*0.02
         else:
-            self.max_speed = 32*0.04
+            self.max_speed = 32*0.02
 
     def turn(self,dir,mag):
-        self.angle += mag * dir
+        if self.ptype == 1:
+            mag2 = self.velocity/(30*0.02) + 0.4
+        else:
+            mag2 = self.velocity/(32 * 0.02) + 0.4
+        if mag2 > 1:
+            mag2 = 1
+        self.angle += mag * dir * mag2
         self.angle = self.angle % 360
 
     def change_velocity(self,dir,mag):
         if dir == 1:
-            if self.velocity + 0.05 <= self.max_speed:
+            if self.velocity + 0.025 <= self.max_speed:
                 self.velocity += dir * mag
         else:
-            if self.velocity - 0.05 >= self.max_speed*dir:
+            if self.velocity - 0.025 >= self.max_speed*dir:
                 self.velocity += dir*mag
 
     def set_velocity(self,num):
